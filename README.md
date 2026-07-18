@@ -52,7 +52,7 @@ Para executar este projeto, você precisará ter instalado:
 1. **Clone o repositório** (ou descompacte o arquivo do projeto):
 
    ```bash
-   git clone <https://github.com/Luke-2001/desafio-sicredi.git>
+   git clone https://github.com/Luke-2001/desafio-sicredi.git
    cd desafio-sicredi
    ```
 
