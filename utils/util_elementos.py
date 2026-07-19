@@ -1,22 +1,29 @@
-class ElementUtils:
+import logging
+
+from selenium.common.exceptions import JavascriptException, WebDriverException
+
+logger = logging.getLogger(__name__)
+
+
+class UtilElementos:
 
     @staticmethod
-    def highlight(driver, element):
+    def destacar(driver, elemento):
         try:
             driver.execute_script("""
                 arguments[0].scrollIntoView({
                     block: 'center'
                 });
-            """, element)
+            """, elemento)
 
             driver.execute_script("""
                 arguments[0].style.transition = '0.2s';
                 arguments[0].style.boxShadow = '0 0 20px red';
-            """, element)
+            """, elemento)
 
             driver.execute_script("""
                 arguments[0].style.boxShadow = '';
-            """, element)
+            """, elemento)
 
-        except Exception:
-            pass
+        except (JavascriptException, WebDriverException) as erro:
+            logger.debug("Não foi possível destacar o elemento: %s", erro)

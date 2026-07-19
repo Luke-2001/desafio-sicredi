@@ -1,37 +1,35 @@
 import logging
 
 from config import settings
-from pages.cart_page import CartPage
-from pages.checkout_page import CheckoutPage
-from pages.login_page import LoginPage
-from pages.menu_page import MenuPage
-from pages.products_page import ProductsPage
-from services.csv_reader import CsvReader
-from services.report_service import ReportService
-from utils.driver_factory import create_driver
+from pages.pagina_carrinho import PaginaCarrinho
+from pages.pagina_checkout import PaginaCheckout
+from pages.pagina_login import PaginaLogin
+from pages.pagina_menu import PaginaMenu
+from pages.pagina_produtos import PaginaProdutos
+from services.leitor_csv import LeitorCsv
+from services.servico_relatorio import ServicoRelatorio
+from utils.criador_driver import criar_driver
 
 
 def main():
-    successful_products = []
-    failed_products = []
+    produtos_sucesso = []
+    produtos_falha = []
     driver = None
 
     try:
-        driver = create_driver()
+        driver = criar_driver()
 
         if settings.DEBUG:
             logging.info(
                 "Iniciando automação do desafio-sicredi..."
             )
 
-        driver.get(
-            "https://www.saucedemo.com"
-        )
+        driver.get("https://www.saucedemo.com")
 
         # Login
-        login_page = LoginPage(driver)
+        pagina_login = PaginaLogin(driver)
 
-        login_page.login(
+        pagina_login.realizar_login(
             "standard_user",
             "secret_sauce"
         )
@@ -41,144 +39,134 @@ def main():
         )
 
         # Produtos
-        products = CsvReader.read_products(
+        produtos = LeitorCsv.ler_produtos(
             "data/produtos_compra.csv"
         )
 
-        products_page = ProductsPage(driver)
+        pagina_produtos = PaginaProdutos(driver)
 
-        for product in products:
-
+        for produto in produtos:
             try:
-
-                products_page.click_add_to_cart(
-                    product
+                pagina_produtos.adicionar_produto_carrinho(
+                    produto
                 )
 
-                successful_products.append(
-                    product["produto"]
+                produtos_sucesso.append(
+                    produto["produto"]
                 )
 
                 logging.info(
-                    f"Produto adicionado: {product['produto']}"
+                    "Produto adicionado: %s",
+                    produto["produto"]
                 )
 
-
-            except Exception as e:
-
+            except Exception as erro:
                 logging.error(
-                    f"Erro ao adicionar produto "
-                    f"{product['produto']}: {str(e)}"
+                    "Erro ao adicionar produto %s: %s",
+                    produto["produto"],
+                    erro
                 )
 
-                failed_products.append(
+                produtos_falha.append(
                     {
-                        "produto": product["produto"],
-                        "erro": str(e)
+                        "produto": produto["produto"],
+                        "erro": str(erro)
                     }
                 )
 
         # Não continuar sem produtos
-        if not successful_products:
+        if not produtos_sucesso:
             logging.error(
                 "Nenhum produto foi adicionado ao carrinho."
             )
 
-            ReportService.generate_report(
-                successful_products,
-                failed_products,
+            ServicoRelatorio.gerar_relatorio(
+                produtos_sucesso,
+                produtos_falha,
                 "Compra não realizada"
             )
-
             return
 
         # Carrinho
-        cart_page = CartPage(driver)
+        pagina_carrinho = PaginaCarrinho(driver)
 
-        cart_page.click_cart()
+        pagina_carrinho.clicar_carrinho()
+        pagina_carrinho.capturar_tela_carrinho()
 
-        cart_page.take_cart_screenshot()
-
-        # Única validação do carrinho
-        missing_products = (
-            cart_page.get_missing_products(
-                successful_products
+        produtos_ausentes = (
+            pagina_carrinho.obter_produtos_ausentes(
+                produtos_sucesso
             )
         )
 
-        for product in missing_products:
+        for produto in produtos_ausentes:
             logging.warning(
-                f"Produto ausente no carrinho: {product}"
+                "Produto ausente no carrinho: %s",
+                produto
             )
 
-            failed_products.append(
+            produtos_falha.append(
                 {
-                    "produto": product,
+                    "produto": produto,
                     "erro": "Produto ausente no carrinho"
                 }
             )
 
         # Checkout
-        checkout = CheckoutPage(driver)
+        pagina_checkout = PaginaCheckout(driver)
 
         try:
+            pagina_checkout.clicar_checkout()
 
-            checkout.click_checkout()
-
-            checkout.fill_information(
+            pagina_checkout.preencher_informacoes(
                 "Lucas",
                 "Bassanesi",
                 "87000-000"
             )
 
-            checkout.click_continue()
+            pagina_checkout.clicar_continuar()
+            pagina_checkout.clicar_finalizar()
 
-            checkout.click_finish()
-
-
-        except Exception as e:
-
+        except Exception as erro:
             logging.error(
-                f"Erro no checkout: {str(e)}"
+                "Erro no checkout: %s",
+                erro
             )
 
-            ReportService.generate_report(
-                successful_products,
-                failed_products,
-                f"Falha no checkout: {str(e)}"
+            ServicoRelatorio.gerar_relatorio(
+                produtos_sucesso,
+                produtos_falha,
+                f"Falha no checkout: {erro}"
             )
-
             return
 
-        checkout.take_confirmation_screenshot()
+        pagina_checkout.capturar_tela_confirmacao()
 
-        confirmation_message = (
-            checkout.get_confirmation_message()
+        mensagem_confirmacao = (
+            pagina_checkout.obter_mensagem_confirmacao()
         )
 
         logging.info(
-            f"Compra finalizada: {confirmation_message}"
+            "Compra finalizada: %s",
+            mensagem_confirmacao
         )
 
-        checkout.click_generate_pdf()
-
-        checkout.click_back_to_products()
+        pagina_checkout.clicar_gerar_pdf()
+        pagina_checkout.clicar_voltar_produtos()
 
         # Relatório antes do logout
-        ReportService.generate_report(
-            successful_products,
-            failed_products,
-            confirmation_message
+        ServicoRelatorio.gerar_relatorio(
+            produtos_sucesso,
+            produtos_falha,
+            mensagem_confirmacao
         )
 
         # Logout
-        menu = MenuPage(driver)
+        pagina_menu = PaginaMenu(driver)
 
-        menu.open_menu()
-
-        menu.logout()
-
-        menu.validate_logout()
+        pagina_menu.abrir_menu()
+        pagina_menu.realizar_logout()
+        pagina_menu.validar_logout()
 
         logging.info(
             "Automação finalizada com sucesso."
@@ -189,23 +177,19 @@ def main():
                 "Pressione ENTER para fechar..."
             )
 
-
-
-    except Exception as e:
-
+    except Exception as erro:
         logging.exception(
-            f"Erro inesperado: {str(e)}"
+            "Erro inesperado: %s",
+            erro
         )
 
-        ReportService.generate_report(
-            successful_products,
-            failed_products,
-            f"Falha inesperada: {str(e)}"
+        ServicoRelatorio.gerar_relatorio(
+            produtos_sucesso,
+            produtos_falha,
+            f"Falha inesperada: {erro}"
         )
-
 
     finally:
-
         if driver:
             driver.quit()
 
